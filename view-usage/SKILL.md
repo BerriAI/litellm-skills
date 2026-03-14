@@ -1,16 +1,15 @@
 ---
 name: view-usage
 description: >
-  Query spend and activity on a live LiteLLM proxy. Shows daily token usage,
-  cost, request counts broken down by user, team, org, model, or API key.
-  Use when the user wants to see how much has been spent, who is using what,
-  or which models are being called most.
+  Query spend and token activity on a live LiteLLM proxy. Shows daily usage
+  broken down by user, team, org, or model. Use when the user wants to see
+  costs, token counts, or request volume for a given date range.
 license: MIT
-compatibility: Requires curl. Proxy must be running and reachable.
+compatibility: Requires curl and python3.
 metadata:
   author: BerriAI
   version: "1.0"
-allowed-tools: Bash(curl:*)
+allowed-tools: Bash(curl:*) Bash(python3:*)
 ---
 
 # View Usage
@@ -19,73 +18,59 @@ Query daily activity and spend data from a live LiteLLM proxy.
 
 ## Setup
 
-Ask for these if not already available:
+Ask for these if not already known:
 ```
-LITELLM_BASE_URL  — e.g. http://localhost:4000
-LITELLM_API_KEY   — admin/master key
-```
-
-```bash
-BASE="<LITELLM_BASE_URL>"
-KEY="<LITELLM_API_KEY>"
+LITELLM_BASE_URL  — e.g. https://my-proxy.example.com
+LITELLM_API_KEY   — proxy admin key
 ```
 
 API reference: https://litellm.vercel.app/docs/proxy/users#get-user-spend
 
----
+## Ask the user
 
-## Activity endpoints
+1. **View by** — overall / user / team / org / tag (default: overall)
+2. **Date range** — default to current month if not given
+3. **Filter by model?** (optional)
 
-All endpoints accept the same query parameters:
+## Endpoints
 
-| Param | Description | Example |
-|---|---|---|
-| `start_date` | From date (inclusive) | `2025-01-01` |
-| `end_date` | To date (inclusive) | `2025-01-31` |
-| `model` | Filter by model name | `gpt-4o` |
-| `api_key` | Filter by API key hash | |
-| `page` | Page number (default 1) | `1` |
-| `page_size` | Results per page (default 10–50) | `25` |
-
-### Overall daily activity (across all users)
+### Overall (across all users)
 ```bash
-curl -s "$BASE/user/daily/activity?start_date=2025-01-01&end_date=2025-01-31&page_size=30" \
-  -H "Authorization: Bearer $KEY" | python3 -m json.tool
-```
-
-### By user
-```bash
-curl -s "$BASE/user/daily/activity?user_id=<user_id>&start_date=2025-01-01&end_date=2025-01-31" \
-  -H "Authorization: Bearer $KEY" | python3 -m json.tool
+curl -s "$BASE/user/daily/activity?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&page_size=30" \
+  -H "Authorization: Bearer $KEY"
 ```
 
 ### By team
 ```bash
-curl -s "$BASE/team/daily/activity?team_ids=<team_id>&start_date=2025-01-01&end_date=2025-01-31" \
-  -H "Authorization: Bearer $KEY" | python3 -m json.tool
+curl -s "$BASE/team/daily/activity?team_ids=<team_id>&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD" \
+  -H "Authorization: Bearer $KEY"
 ```
 
-### By organization
+### By org
 ```bash
-curl -s "$BASE/organization/daily/activity?organization_ids=<org_id>&start_date=2025-01-01&end_date=2025-01-31" \
-  -H "Authorization: Bearer $KEY" | python3 -m json.tool
+curl -s "$BASE/organization/daily/activity?organization_ids=<org_id>&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD" \
+  -H "Authorization: Bearer $KEY"
+```
+
+### By user
+```bash
+curl -s "$BASE/user/daily/activity?user_id=<user_id>&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD" \
+  -H "Authorization: Bearer $KEY"
 ```
 
 ### By tag
 ```bash
-curl -s "$BASE/tag/daily/activity?start_date=2025-01-01&end_date=2025-01-31" \
-  -H "Authorization: Bearer $KEY" | python3 -m json.tool
+curl -s "$BASE/tag/daily/activity?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD" \
+  -H "Authorization: Bearer $KEY"
 ```
-
----
 
 ## Response shape
 
 ```json
 {
-  "data": [
+  "results": [
     {
-      "date": "2025-01-15",
+      "date": "2026-03-14",
       "metrics": {
         "spend": 1.23,
         "prompt_tokens": 45000,
@@ -96,74 +81,41 @@ curl -s "$BASE/tag/daily/activity?start_date=2025-01-01&end_date=2025-01-31" \
         "failed_requests": 2
       },
       "breakdown": {
-        "models": {
-          "gpt-4o": { "spend": 0.90, "total_tokens": 40000 },
-          "gpt-4o-mini": { "spend": 0.33, "total_tokens": 17000 }
-        },
-        "providers": {
-          "openai": { "spend": 1.23 }
-        }
+        "models": { "gpt-4o": { "metrics": { "spend": 1.23, ... } } }
       }
     }
   ],
-  "pagination": {
-    "page": 1,
-    "page_size": 10,
-    "total_count": 31,
-    "total_pages": 4
-  }
+  "metadata": { "page": 1, "page_size": 10, "total_count": 31 }
 }
 ```
 
----
+Note: top-level key is `results` (not `data`).
 
-## Total spend for a key or user
+## Summarize with python3
 
-### Key spend
 ```bash
-curl -s "$BASE/key/info?key=<the-key>" \
+curl -s "$BASE/user/daily/activity?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&page_size=30" \
   -H "Authorization: Bearer $KEY" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-info = d.get('info', d)
-print(f'Key:      {info.get(\"key_alias\", \"(no alias)\")}')
-print(f'Spend:    \${info.get(\"spend\", 0):.4f}')
-print(f'Budget:   \${info.get(\"max_budget\", \"unlimited\")}')
+rows = d.get('results', [])
+print(f'{'Date':<12} {'Requests':>10} {'Tokens':>12} {'Spend':>10}')
+print('-' * 46)
+total_spend = 0
+for r in rows:
+    m = r.get('metrics', {})
+    print(f'{r[\"date\"]:<12} {m.get(\"api_requests\",0):>10} {m.get(\"total_tokens\",0):>12} \${m.get(\"spend\",0):>9.4f}')
+    total_spend += m.get('spend', 0)
+print('-' * 46)
+print(f'{'TOTAL':<12} {'':>10} {'':>12} \${total_spend:>9.4f}')
 "
 ```
-
-### User spend
-```bash
-curl -s "$BASE/user/info?user_id=<user_id>" \
-  -H "Authorization: Bearer $KEY" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-u = d.get('user_info', d)
-print(f'User:   {u.get(\"user_email\", u.get(\"user_id\"))}')
-print(f'Spend:  \${u.get(\"spend\", 0):.4f}')
-print(f'Budget: \${u.get(\"max_budget\", \"unlimited\")}')
-"
-```
-
----
-
-## Aggregated summary (no pagination)
-
-For a single rolled-up row across a date range:
-```bash
-curl -s "$BASE/user/daily/activity/aggregated?start_date=2025-01-01&end_date=2025-01-31" \
-  -H "Authorization: Bearer $KEY" | python3 -m json.tool
-```
-
----
 
 ## Instructions
 
-1. Ask the user what they want to see: overall / by user / by team / by org / by tag.
-2. Ask for the date range. Default to the current month if not specified (use today's date to compute `start_date` and `end_date`).
-3. Ask if they want to filter by a specific model or API key (optional).
-4. Run the appropriate curl and summarize the response as a human-readable table:
-   - Columns: Date, Requests, Tokens (prompt / completion), Spend ($)
-   - Footer: totals row
-5. If the response spans multiple pages, offer to fetch the next page.
-6. Highlight any days with failed requests > 0.
+1. Ask for date range — default to current month.
+2. Run the appropriate endpoint.
+3. Print a table: Date | Requests | Tokens | Spend.
+4. Show totals row at the bottom.
+5. Highlight any days with `failed_requests > 0`.
+6. If `metadata.total_pages > 1`, offer to fetch remaining pages.

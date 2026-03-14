@@ -2,6 +2,12 @@
 
 [Agent Skills](https://agentskills.io) for managing live LiteLLM proxy deployments. Requires `curl`.
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm-skills/main/install.sh | sh
+```
+
 ## Skills
 
 ### Users
@@ -56,36 +62,6 @@
 | Skill | Description |
 |-------|-------------|
 | [`view-usage`](view-usage/) | Query daily spend and token activity by user, team, org, or model. |
-
-## Install
-
-```bash
-git clone https://github.com/BerriAI/litellm-skills.git ~/.claude/skills/litellm
-cd ~/.claude/skills
-ln -s litellm/add-user add-user
-ln -s litellm/update-user update-user
-ln -s litellm/delete-user delete-user
-ln -s litellm/add-team add-team
-ln -s litellm/update-team update-team
-ln -s litellm/delete-team delete-team
-ln -s litellm/add-key add-key
-ln -s litellm/update-key update-key
-ln -s litellm/delete-key delete-key
-ln -s litellm/add-org add-org
-ln -s litellm/delete-org delete-org
-ln -s litellm/add-model add-model
-ln -s litellm/update-model update-model
-ln -s litellm/delete-model delete-model
-ln -s litellm/add-mcp add-mcp
-ln -s litellm/update-mcp update-mcp
-ln -s litellm/delete-mcp delete-mcp
-ln -s litellm/add-agent add-agent
-ln -s litellm/update-agent update-agent
-ln -s litellm/delete-agent delete-agent
-ln -s litellm/view-usage view-usage
-```
-
-Claude Code discovers skills by looking for `SKILL.md` files at `~/.claude/skills/<skill-name>/SKILL.md`. Since this is a multi-skill repo, symlinks are needed to expose each sub-skill at the expected depth.
 
 ## Requirements
 

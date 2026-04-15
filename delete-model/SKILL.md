@@ -1,8 +1,6 @@
 ---
 name: delete-model
-description: >
-  Delete a model from a live LiteLLM proxy. Ask for the model name or model_id
-  and confirm before calling POST /model/delete.
+description: "Delete a model from a live LiteLLM proxy. Asks for the model name or model_id and confirms before calling POST /model/delete. Use when the user wants to remove, delete, or unregister a model from a LiteLLM proxy instance."
 license: MIT
 compatibility: Requires curl.
 metadata:

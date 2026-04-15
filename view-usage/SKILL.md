@@ -1,9 +1,6 @@
 ---
 name: view-usage
-description: >
-  Query spend and token activity on a live LiteLLM proxy. Shows daily usage
-  broken down by user, team, org, or model. Use when the user wants to see
-  costs, token counts, or request volume for a given date range.
+description: "Query spend and token activity on a live LiteLLM proxy. Shows daily usage broken down by user, team, org, or model. Use when the user wants to see costs, token counts, or request volume for a given date range."
 license: MIT
 compatibility: Requires curl and python3.
 metadata:
@@ -111,11 +108,19 @@ print(f'{'TOTAL':<12} {'':>10} {'':>12} \${total_spend:>9.4f}')
 "
 ```
 
+## Error handling
+
+Before processing results, check the HTTP status:
+- **401/403** — invalid or expired `LITELLM_API_KEY`; ask the user to verify
+- **404** — endpoint not available; check LiteLLM proxy version supports activity endpoints
+- **Empty results** — no activity in the given date range; confirm dates are correct
+
 ## Instructions
 
 1. Ask for date range — default to current month.
 2. Run the appropriate endpoint.
-3. Print a table: Date | Requests | Tokens | Spend.
-4. Show totals row at the bottom.
-5. Highlight any days with `failed_requests > 0`.
-6. If `metadata.total_pages > 1`, offer to fetch remaining pages.
+3. Validate the response (check for errors before parsing).
+4. Print a table: Date | Requests | Tokens | Spend.
+5. Show totals row at the bottom.
+6. Highlight any days with `failed_requests > 0`.
+7. If `metadata.total_pages > 1`, offer to fetch remaining pages.

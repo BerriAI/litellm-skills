@@ -1,9 +1,6 @@
 ---
 name: add-model
-description: >
-  Add a new model to a live LiteLLM proxy. Walks the user through picking a
-  provider, entering the deployment name and credentials, calls POST /model/new,
-  then test-calls the model to confirm it routes correctly.
+description: "Add a new model to a live LiteLLM proxy. Walks the user through picking a provider, entering the deployment name and credentials, calls POST /model/new, then test-calls the model to confirm it routes correctly. Use when the user wants to add, register, deploy, or configure a new model on a LiteLLM proxy instance."
 license: MIT
 compatibility: Requires curl.
 metadata:

@@ -1,6 +1,10 @@
 ---
 name: view-usage
-description: "Query spend and token activity on a live LiteLLM proxy. Shows daily usage broken down by user, team, org, or model. Use when the user wants to see costs, token counts, or request volume for a given date range."
+description: >
+  Query spend and token activity on a live LiteLLM proxy. Shows daily usage
+  broken down by user, team, org, tag, job, or model. Use when the user wants
+  to see costs, token counts, request volume, or job-level attribution for a
+  given date range.
 license: MIT
 compatibility: Requires curl and python3.
 metadata:
@@ -21,19 +25,41 @@ LITELLM_BASE_URL  — e.g. https://my-proxy.example.com
 LITELLM_API_KEY   — proxy admin key
 ```
 
-API reference: https://litellm.vercel.app/docs/proxy/users#get-user-spend
+API reference: https://docs.litellm.ai/docs/proxy/users#get-user-spend
 
 ## Ask the user
 
-1. **View by** — overall / user / team / org / tag (default: overall)
+1. **View by** — overall / user / team / org / tag / job (default: overall)
 2. **Date range** — default to current month if not given
 3. **Filter by model?** (optional)
+4. **Job tag(s)?** (optional) — for job cost attribution, ask which request
+   tag identifies the job, for example `job:nightly-eval` or `job=batch-import`.
+
+## Job cost attribution
+
+LiteLLM attributes per-request costs through request tags. For LLM jobs, prefer
+tagging requests with a stable job label such as `job:<job-name>` and then query
+tag APIs:
+
+- Use `/tag/daily/activity?tags=<tag>` for daily spend, tokens, request count,
+  and model/provider breakdowns for one or more job tags.
+- Use `/global/spend/tags?tags=<tag>` for a top-level spend total by tag over a
+  date range.
+- If the user asks "which jobs cost the most?", call `/global/spend/tags`
+  without a `tags` filter, sort by spend descending, and present the top tags
+  that look like job labels.
 
 ## Endpoints
 
-### Overall (across all users)
+### Overall spend (across all users)
 ```bash
 curl -s "$BASE/user/daily/activity?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&page_size=30" \
+  -H "Authorization: Bearer $KEY"
+```
+
+### Overall request and token volume
+```bash
+curl -s "$BASE/global/activity?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD" \
   -H "Authorization: Bearer $KEY"
 ```
 
@@ -55,9 +81,27 @@ curl -s "$BASE/user/daily/activity?user_id=<user_id>&start_date=YYYY-MM-DD&end_d
   -H "Authorization: Bearer $KEY"
 ```
 
-### By tag
+### By tag or job
 ```bash
-curl -s "$BASE/tag/daily/activity?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD" \
+curl -s "$BASE/tag/daily/activity?tags=<tag>&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&page_size=30" \
+  -H "Authorization: Bearer $KEY"
+```
+
+For multiple tags, pass a comma-separated list:
+```bash
+curl -s "$BASE/tag/daily/activity?tags=job:nightly-eval,job:batch-import&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&page_size=30" \
+  -H "Authorization: Bearer $KEY"
+```
+
+### Top tag spend
+```bash
+curl -s "$BASE/global/spend/tags?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD" \
+  -H "Authorization: Bearer $KEY"
+```
+
+Filter to a specific job tag:
+```bash
+curl -s "$BASE/global/spend/tags?tags=<tag>&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD" \
   -H "Authorization: Bearer $KEY"
 ```
 
@@ -96,15 +140,20 @@ curl -s "$BASE/user/daily/activity?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&pag
 import sys, json
 d = json.load(sys.stdin)
 rows = d.get('results', [])
-print(f'{'Date':<12} {'Requests':>10} {'Tokens':>12} {'Spend':>10}')
+print('{:<12} {:>10} {:>12} {:>10}'.format('Date', 'Requests', 'Tokens', 'Spend'))
 print('-' * 46)
 total_spend = 0
 for r in rows:
     m = r.get('metrics', {})
-    print(f'{r[\"date\"]:<12} {m.get(\"api_requests\",0):>10} {m.get(\"total_tokens\",0):>12} \${m.get(\"spend\",0):>9.4f}')
+    print('{:<12} {:>10} {:>12} ${:>9.4f}'.format(
+        r.get('date', ''),
+        m.get('api_requests', 0),
+        m.get('total_tokens', 0),
+        m.get('spend', 0),
+    ))
     total_spend += m.get('spend', 0)
 print('-' * 46)
-print(f'{'TOTAL':<12} {'':>10} {'':>12} \${total_spend:>9.4f}')
+print('{:<12} {:>10} {:>12} ${:>9.4f}'.format('TOTAL', '', '', total_spend))
 "
 ```
 
@@ -118,9 +167,9 @@ Before processing results, check the HTTP status:
 ## Instructions
 
 1. Ask for date range — default to current month.
-2. Run the appropriate endpoint.
-3. Validate the response (check for errors before parsing).
-4. Print a table: Date | Requests | Tokens | Spend.
-5. Show totals row at the bottom.
-6. Highlight any days with `failed_requests > 0`.
-7. If `metadata.total_pages > 1`, offer to fetch remaining pages.
+2. Run the appropriate endpoint. For job attribution, prefer tag endpoints and
+   ask for the job tag if it was not provided.
+3. Print a table: Date | Requests | Tokens | Spend.
+4. Show totals row at the bottom.
+5. Highlight any days with `failed_requests > 0`.
+6. If `metadata.total_pages > 1`, offer to fetch remaining pages.

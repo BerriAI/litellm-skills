@@ -157,6 +157,13 @@ print('{:<12} {:>10} {:>12} ${:>9.4f}'.format('TOTAL', '', '', total_spend))
 "
 ```
 
+## Error handling
+
+Before processing results, check the HTTP status:
+- **401/403** — invalid or expired `LITELLM_API_KEY`; ask the user to verify
+- **404** — endpoint not available; check LiteLLM proxy version supports activity endpoints
+- **Empty results** — no activity in the given date range; confirm dates are correct
+
 ## Instructions
 
 1. Ask for date range — default to current month.

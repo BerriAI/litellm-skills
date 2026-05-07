@@ -1,8 +1,6 @@
 ---
 name: add-key
-description: >
-  Generate a new API key on a live LiteLLM proxy. Asks for alias, scope
-  (user/team), budget, models, and expiry, then calls POST /key/generate.
+description: "Generate a new API key on a live LiteLLM proxy. Asks for alias, scope (user/team), budget, models, and expiry, then calls POST /key/generate. Use when the user wants to create, generate, or provision an API key on a LiteLLM proxy instance."
 license: MIT
 compatibility: Requires curl.
 metadata:
@@ -36,6 +34,9 @@ API reference: https://litellm.vercel.app/docs/proxy/virtual_keys
 ## Run
 
 ```bash
+BASE="$LITELLM_BASE_URL"
+KEY="$LITELLM_API_KEY"
+
 curl -s -X POST "$BASE/key/generate" \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
@@ -49,10 +50,29 @@ curl -s -X POST "$BASE/key/generate" \
   }'
 ```
 
+## Verify
+
+Confirm the key was created:
+```bash
+curl -s "$BASE/key/info" \
+  -H "Authorization: Bearer <new_key>" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+info = d.get('info', {})
+print(f'Alias: {info.get(\"key_alias\")}')
+print(f'Expires: {info.get(\"expires\")}')
+print(f'Budget: {info.get(\"max_budget\")}')
+print(f'Models: {info.get(\"models\")}')
+"
+```
+
 ## Output
 
 Show the user:
 - `key` — the actual key value (only shown once, tell them to save it)
 - `key_alias`, `expires`, `max_budget`, `models`
 
-On error show `detail` and the likely fix.
+On error:
+- **401** — check that `LITELLM_API_KEY` is a valid admin key
+- **400** — check required fields; verify `team_id`/`user_id` exists
+- Other errors — show `detail` and the likely fix

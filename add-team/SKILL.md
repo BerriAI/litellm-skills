@@ -1,8 +1,6 @@
 ---
 name: add-team
-description: >
-  Create a new team on a live LiteLLM proxy. Asks for team name, budget, and
-  allowed models, then calls POST /team/new and shows the result.
+description: "Create a new team on a live LiteLLM proxy. Asks for team name, budget, and allowed models, then calls POST /team/new and shows the result. Use when the user wants to create a new team, set up team budgets, or configure model access for a team on the proxy."
 license: MIT
 compatibility: Requires curl.
 metadata:
@@ -35,6 +33,9 @@ API reference: https://litellm.vercel.app/docs/proxy/team_based_routing
 ## Run
 
 ```bash
+BASE="$LITELLM_BASE_URL"
+KEY="$LITELLM_API_KEY"
+
 curl -s -X POST "$BASE/team/new" \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
@@ -47,10 +48,21 @@ curl -s -X POST "$BASE/team/new" \
   }'
 ```
 
+## Verify
+
+Confirm the team was created:
+```bash
+curl -s "$BASE/team/info?team_id=<team_id>" \
+  -H "Authorization: Bearer $KEY"
+```
+
 ## Output
 
 Show the user:
 - `team_id` — they'll need this to generate keys for the team
 - `team_alias`, `max_budget`, `models`
 
-On error show `detail` and the likely fix.
+On error:
+- **401** — check that `LITELLM_API_KEY` is a valid admin key
+- **400** — check required fields (team_alias is required)
+- Other errors — show `detail` and the likely fix

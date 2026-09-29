@@ -1,73 +1,72 @@
 # litellm skills
 
-[Agent Skills](https://agentskills.io) for managing live LiteLLM proxy deployments. Requires `curl`.
+[Agent Skills](https://agentskills.io) that let coding agents (Claude Code, Codex, OpenCode, Cursor, and anything else that reads `SKILL.md`) run, connect to, and administer a [LiteLLM](https://github.com/BerriAI/litellm) proxy. Every skill works over plain HTTP with `curl`, so there is nothing to install on the proxy side.
 
 ## Install
+
+Claude Code plugin:
+
+```
+/plugin marketplace add BerriAI/litellm-skills
+/plugin install litellm@litellm
+```
+
+Any agent, via the [skills CLI](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add BerriAI/litellm-skills
+```
+
+Or clone and symlink into `~/.claude/skills` (set `SKILLS_DIR` to target another agent's skills directory). Re-running it updates the skills and removes links left by older versions.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BerriAI/litellm-skills/main/install.sh | sh
 ```
 
+Then tell the agent where your proxy is:
+
+```bash
+export LITELLM_BASE_URL=https://litellm.example.com
+export LITELLM_API_KEY=sk-...   # proxy admin key for admin tasks, any virtual key for litellm-connect
+```
+
 ## Skills
 
-### Users
-| Skill | Description |
-|-------|-------------|
-| [`add-user`](add-user/) | Create a user with email, role, budget, and model access. |
-| [`update-user`](update-user/) | Update budget, role, or model access for an existing user. |
-| [`delete-user`](delete-user/) | Delete one or more users. |
+| Skill | Use it to |
+|---|---|
+| [`litellm-setup`](litellm-setup/) | Run a proxy with Docker Compose, `docker run`, or uv, with Postgres and safe master and salt keys. |
+| [`litellm-connect`](litellm-connect/) | Point Claude Code, Codex, Gemini CLI, OpenCode, Cursor, the OpenAI and Anthropic SDKs, and MCP clients at the gateway. |
+| [`litellm-doctor`](litellm-doctor/) | Check health and version, and explain 401/403/404/429/500s and why a key can't call a model. |
+| [`litellm-keys`](litellm-keys/) | Create, update, rotate, block, and delete virtual keys with budgets, rate limits, and model access. |
+| [`litellm-users`](litellm-users/) | Create, update, invite, and delete users, including bulk onboarding. |
+| [`litellm-teams`](litellm-teams/) | Manage teams, members, per-member budgets, and team model access. |
+| [`litellm-orgs`](litellm-orgs/) | Manage organizations and org admins (Enterprise). |
+| [`litellm-models`](litellm-models/) | Add, test, update, pause, and delete models; reusable credentials, access groups, fallbacks. |
+| [`litellm-mcp`](litellm-mcp/) | Register, test, and update MCP servers (HTTP, SSE, stdio, OAuth), toolsets, and MCP access grants. |
+| [`litellm-agents`](litellm-agents/) | Register A2A agents, test them, control access, and use the kill switch. |
+| [`litellm-guardrails`](litellm-guardrails/) | Create guardrails, attach them with policies to teams, keys, or tags, and test them. |
+| [`litellm-budgets`](litellm-budgets/) | Reusable budgets, customer (end user) budgets, and who is close to their limit. |
+| [`litellm-usage`](litellm-usage/) | Spend, tokens, and requests by user, team, org, key, tag, model, customer, or agent. |
 
-### Teams
-| Skill | Description |
-|-------|-------------|
-| [`add-team`](add-team/) | Create a team with budget and model limits. |
-| [`update-team`](update-team/) | Update budget, models, or rate limits for an existing team. |
-| [`delete-team`](delete-team/) | Delete one or more teams. |
+Skills are written against LiteLLM v1.103 (September 2026) and note the version where recent behavior changed. Organization features, key tags, guardrails on keys, and key regeneration need a LiteLLM Enterprise license; the skills say so where it applies.
 
-### API Keys
-| Skill | Description |
-|-------|-------------|
-| [`add-key`](add-key/) | Generate an API key scoped to a user, team, budget, and expiry. |
-| [`update-key`](update-key/) | Update budget, models, or expiry for an existing key. |
-| [`delete-key`](delete-key/) | Delete one or more API keys by value or alias. |
+## Migrating from v1
 
-### Organizations
-| Skill | Description |
-|-------|-------------|
-| [`add-org`](add-org/) | Create an organization with budget and model access. |
-| [`delete-org`](delete-org/) | Delete one or more organizations. |
-
-### Models
-| Skill | Description |
-|-------|-------------|
-| [`add-model`](add-model/) | Add any LLM provider (OpenAI, Azure, Anthropic, Bedrock, Ollama…) and test it. |
-| [`update-model`](update-model/) | Rotate credentials or change the underlying deployment for a model. |
-| [`delete-model`](delete-model/) | Remove a model from the proxy. |
-
-### MCP Servers
-| Skill | Description |
-|-------|-------------|
-| [`add-mcp`](add-mcp/) | Register an MCP server (SSE, HTTP, or stdio). |
-| [`update-mcp`](update-mcp/) | Update URL, credentials, or allowed tools for an MCP server. |
-| [`delete-mcp`](delete-mcp/) | Remove an MCP server registration. |
-
-### Agents
-| Skill | Description |
-|-------|-------------|
-| [`add-agent`](add-agent/) | Create an AI agent backed by a model and optional MCP servers. |
-| [`update-agent`](update-agent/) | Swap the model or update description and limits for an agent. |
-| [`delete-agent`](delete-agent/) | Remove an agent. |
-
-### Usage
-| Skill | Description |
-|-------|-------------|
-| [`view-usage`](view-usage/) | Query daily spend and token activity by user, team, org, or model. |
+v1 shipped one skill per action (`/add-key`, `/update-key`, `/delete-key`, ...). Each domain is now a single skill that covers every action, so `/add-key` becomes `/litellm-keys` (or just ask for what you want). Re-run `install.sh` and it removes the old links.
 
 ## Requirements
 
-- `curl` installed
-- A running LiteLLM proxy
-- A proxy admin key (not a virtual key scoped to `llm_api_routes`)
+- `curl` and `python3`
+- A reachable LiteLLM proxy with a database for admin features
+- A proxy admin key for admin skills; a team admin key works for its own team
+
+## Development
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Evals for the skills live in `evals/`. Each skill directory is self-contained so it can be installed on its own.
 
 ## License
 

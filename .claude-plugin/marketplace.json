@@ -1,0 +1,39 @@
+{
+  "name": "litellm",
+  "owner": {
+    "name": "BerriAI",
+    "url": "https://github.com/BerriAI"
+  },
+  "metadata": {
+    "description": "Agent Skills for running, connecting to, and administering a LiteLLM proxy (AI gateway)",
+    "version": "2.0.0"
+  },
+  "plugins": [
+    {
+      "name": "litellm",
+      "description": "Run a LiteLLM proxy, connect Claude Code, Codex, SDKs, and MCP clients to it, and manage keys, users, teams, orgs, models, MCP servers, agents, guardrails, budgets, and usage with curl.",
+      "version": "2.0.0",
+      "source": "./",
+      "strict": false,
+      "homepage": "https://docs.litellm.ai/docs/tutorials/claude_code_skills",
+      "repository": "https://github.com/BerriAI/litellm-skills",
+      "license": "MIT",
+      "keywords": ["litellm", "llm-gateway", "ai-gateway", "proxy", "mcp", "a2a"],
+      "skills": [
+        "./litellm-setup",
+        "./litellm-connect",
+        "./litellm-doctor",
+        "./litellm-keys",
+        "./litellm-users",
+        "./litellm-teams",
+        "./litellm-orgs",
+        "./litellm-models",
+        "./litellm-mcp",
+        "./litellm-agents",
+        "./litellm-guardrails",
+        "./litellm-budgets",
+        "./litellm-usage"
+      ]
+    }
+  ]
+}

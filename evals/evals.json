@@ -1,0 +1,139 @@
+{
+  "skill_name": "litellm-skills",
+  "notes": "Run against a live LiteLLM proxy (LITELLM_BASE_URL / LITELLM_API_KEY set to an admin key) seeded by evals/seed.sh. Baseline is the v1 skill set (add-key, update-key, ...). Assertions are checked from the transcript and from proxy state after the run.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "scoped-agent-key",
+      "prompt": "I need an API key for our billing agent. It should only be able to call gpt-5.5, cap it at $50 a month, expire in 90 days, and it must not be able to touch any admin endpoints. Alias it billing-agent-prod.",
+      "expected_output": "A new key with alias billing-agent-prod, models [gpt-5.5], max_budget 50 with a monthly budget_duration, 90 day expiry, key_type llm_api; raw key shown once with a save-it warning.",
+      "files": [],
+      "assertions": [
+        "Called POST /key/generate exactly once for this key (no duplicate keys with that alias exist afterwards)",
+        "Proxy state: key billing-agent-prod has models == ['gpt-5.5']",
+        "Proxy state: max_budget == 50 and budget_duration is a ~monthly window (30d or 1mo)",
+        "Proxy state: expires is ~90 days from now",
+        "Restricted admin access via key_type llm_api (or equivalent allowed_routes) rather than ignoring the requirement",
+        "Told the user the raw key is only shown once",
+        "No proxy request failed because of a malformed payload, wrong field, or wrong endpoint (4xx caused by the agent's request shape; expected upstream/provider failures do not count)",
+        "The skills it read covered the core action; it did not have to fall back to general LiteLLM knowledge for the main API calls"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "update-budget-only",
+      "prompt": "bump the marketing-bot key to a $200 budget. don't change anything else on it",
+      "expected_output": "Only max_budget changes; models, rate limits, expiry, and metadata stay as seeded.",
+      "files": [],
+      "assertions": [
+        "Proxy state: marketing-bot max_budget == 200",
+        "Proxy state: marketing-bot models, rpm_limit, and expires are unchanged from the seed",
+        "The update request body did not send null or placeholder values for unrelated fields",
+        "No proxy request failed because of a malformed payload, wrong field, or wrong endpoint (4xx caused by the agent's request shape; expected upstream/provider failures do not count)",
+        "The skills it read covered the core action; it did not have to fall back to general LiteLLM knowledge for the main API calls"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "register-mcp-server",
+      "prompt": "Hook up our internal docs MCP server to the proxy. It's at http://mcp-docs.internal:8080/mcp (streamable http), needs bearer token abc123secret, and I'd like to call it docs-search. Then check it actually works.",
+      "expected_output": "An MCP server registered with an underscore name (e.g. docs_search), transport http, auth_type bearer_token, credentials {auth_value}; then a health or tools/list check whose failure (host unreachable in the eval env) is reported honestly.",
+      "files": [],
+      "assertions": [
+        "Did not end with a 400 caused by a hyphen in server_name or alias; used an underscore name and told the user why",
+        "Sent credentials as an object with auth_value, not a bare string",
+        "Sent transport http (not sse) with the given url",
+        "Proxy state: the server exists after the run",
+        "Ran a post-registration check (/v1/mcp/server/health or /mcp-rest/tools/list) and reported its real result",
+        "No proxy request failed because of a malformed payload, wrong field, or wrong endpoint (4xx caused by the agent's request shape; expected upstream/provider failures do not count)",
+        "The skills it read covered the core action; it did not have to fall back to general LiteLLM knowledge for the main API calls"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "add-embedding-model",
+      "prompt": "add openai's text-embedding-3-large to the gateway as embed-large, the api key is sk-test-not-a-real-key, and confirm it works",
+      "expected_output": "A DB model embed-large -> openai/text-embedding-3-large, tested with /health/test_connection (embedding mode) or an embeddings call; the fake key makes the test fail and that is reported honestly with the auth error.",
+      "files": [],
+      "assertions": [
+        "Proxy state: a model named embed-large with litellm_params.model openai/text-embedding-3-large exists exactly once",
+        "Reported the verification failure (invalid API key) honestly instead of claiming success",
+        "Verification used /health/test_connection or /v1/embeddings, not /chat/completions",
+        "Reported model_id and a clear pass/fail",
+        "No proxy request failed because of a malformed payload, wrong field, or wrong endpoint (4xx caused by the agent's request shape; expected upstream/provider failures do not count)",
+        "The skills it read covered the core action; it did not have to fall back to general LiteLLM knowledge for the main API calls"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "monthly-spend-by-team",
+      "prompt": "how much did each team spend this month? give me the top 3 teams and the overall total",
+      "expected_output": "Correct per-team totals and grand total that match the ground truth from the seed, computed across all pages or from an aggregated endpoint.",
+      "files": [],
+      "assertions": [
+        "Used /team/daily/activity/aggregated or paginated until has_more was false",
+        "Reported overall total within 1% of ground truth",
+        "Top 3 teams and their spend match ground truth order",
+        "No proxy request failed because of a malformed payload, wrong field, or wrong endpoint (4xx caused by the agent's request shape; expected upstream/provider failures do not count)",
+        "The skills it read covered the core action; it did not have to fall back to general LiteLLM knowledge for the main API calls"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "team-member-budget",
+      "prompt": "add dana@acme.test to the data-science team and give her a $100 budget inside that team",
+      "expected_output": "User added to data-science as a regular member (role user) with max_budget_in_team 100.",
+      "files": [],
+      "assertions": [
+        "Proxy state: dana@acme.test is a member of data-science",
+        "Proxy state: dana's budget within data-science is 100",
+        "Did not create a second team or a duplicate user",
+        "No proxy request failed because of a malformed payload, wrong field, or wrong endpoint (4xx caused by the agent's request shape; expected upstream/provider failures do not count)",
+        "The skills it read covered the core action; it did not have to fall back to general LiteLLM knowledge for the main API calls"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "why-key-failing",
+      "prompt": "requests with the support-bot key started failing this morning, every call errors out. what's going on?",
+      "expected_output": "Diagnosis from /key/info (seed puts support-bot over its max_budget) naming the budget as the cause and offering to raise it or reset spend, without changing anything unasked.",
+      "files": [],
+      "assertions": [
+        "Looked up the key's info (spend vs max_budget, rpm/tpm limits, blocked, expiry)",
+        "Named budget exceeded as the cause",
+        "Did not modify the key without asking",
+        "No proxy request failed because of a malformed payload, wrong field, or wrong endpoint (4xx caused by the agent's request shape; expected upstream/provider failures do not count)",
+        "The skills it read covered the core action; it did not have to fall back to general LiteLLM knowledge for the main API calls"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "connect-claude-code",
+      "prompt": "set up claude code on my laptop to go through our litellm gateway (the one in LITELLM_BASE_URL). i want it to use claude-sonnet-5-5 by default. give me what to paste",
+      "expected_output": "ANTHROPIC_BASE_URL without /v1, ANTHROPIC_AUTH_TOKEN with a virtual key (not the master key), ANTHROPIC_MODEL set to a model name that exists on the gateway, and a note to unset ANTHROPIC_API_KEY.",
+      "files": [],
+      "assertions": [
+        "ANTHROPIC_BASE_URL has no /v1 suffix",
+        "Uses ANTHROPIC_AUTH_TOKEN (or x-litellm-api-key header) with a virtual key, and does not put the master/admin key in the snippet",
+        "ANTHROPIC_MODEL is a model name that exists on the gateway (checked via /v1/models or /model/info)",
+        "Mentions unsetting ANTHROPIC_API_KEY",
+        "No proxy request failed because of a malformed payload, wrong field, or wrong endpoint (4xx caused by the agent's request shape; expected upstream/provider failures do not count)",
+        "The skills it read covered the core action; it did not have to fall back to general LiteLLM knowledge for the main API calls"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "incident-disable-key",
+      "prompt": "we think the ci-runner key leaked. shut it off right now, but we might need to turn it back on after we investigate",
+      "expected_output": "Key blocked via /key/block (reversible), not deleted; tells the user how to unblock.",
+      "files": [],
+      "assertions": [
+        "Proxy state: ci-runner is blocked",
+        "Proxy state: ci-runner still exists (was not deleted)",
+        "Explained how to re-enable it",
+        "No proxy request failed because of a malformed payload, wrong field, or wrong endpoint (4xx caused by the agent's request shape; expected upstream/provider failures do not count)",
+        "The skills it read covered the core action; it did not have to fall back to general LiteLLM knowledge for the main API calls"
+      ]
+    }
+  ]
+}
